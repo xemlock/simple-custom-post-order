@@ -48,7 +48,7 @@ class SCPO_Engine {
 
         add_action('admin_menu', array($this, 'admin_menu'));
 
-        add_action('admin_init', array($this, 'refresh'));
+        // add_action('admin_init', array($this, 'refresh'));
 
         add_action('admin_init', array($this, 'update_options'));
         add_action('admin_init', array($this, 'load_script_css'));
@@ -66,7 +66,7 @@ class SCPO_Engine {
         add_filter('get_terms_orderby', array($this, 'scporder_get_terms_orderby'), 10, 3);
         add_filter('wp_get_object_terms', array($this, 'scporder_get_object_terms'), 10, 3);
         add_filter('get_terms', array($this, 'scporder_get_object_terms'), 10, 3);
-        
+
         add_action( 'admin_notices', array( $this, 'scporder_notice_not_checked' ) );
         add_action( 'wp_ajax_scporder_dismiss_notices', array( $this, 'dismiss_notices' ) );
 
@@ -213,54 +213,68 @@ class SCPO_Engine {
         }
     }
 
-    public function refresh() {
+    public function refresh()
+    {
+        $this->refresh_objects();
+        $this->refresh_tags();
+    }
+
+    protected function refresh_objects()
+    {
         global $wpdb;
+
         $objects = $this->get_scporder_options_objects();
-        $tags = $this->get_scporder_options_tags();
 
         if (!empty($objects)) {
             foreach ($objects as $object) {
-                $result = $wpdb->get_results("
+                $result = $wpdb->get_results($wpdb->prepare("
                     SELECT count(*) as cnt, max(menu_order) as max, min(menu_order) as min
                     FROM $wpdb->posts
-                    WHERE post_type = '" . $object . "' AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
-                ");
+                    WHERE post_type = %s AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
+                ", $object));
 
                 if ($result[0]->cnt == 0 || $result[0]->cnt == $result[0]->max)
                     continue;
 
                 // Here's the optimization
                 $wpdb->query("SET @row_number = 0;");
-                $wpdb->query("UPDATE $wpdb->posts as pt JOIN (
+                $wpdb->query($wpdb->prepare("UPDATE $wpdb->posts as pt JOIN (
                   SELECT ID, (@row_number:=@row_number + 1) AS `rank`
                   FROM $wpdb->posts
-                  WHERE post_type = '$object' AND post_status IN ( 'publish', 'pending', 'draft', 'private', 'future' )
+                  WHERE post_type = %s AND post_status IN ( 'publish', 'pending', 'draft', 'private', 'future' )
                   ORDER BY menu_order ASC
                 ) as pt2
                 ON pt.id = pt2.id
-                SET pt.menu_order = pt2.`rank`;");
+                SET pt.menu_order = pt2.`rank`;", $object));
 
             }
         }
+    }
+
+    protected function refresh_tags()
+    {
+        global $wpdb;
+
+        $tags = $this->get_scporder_options_tags();
 
         if (!empty($tags)) {
             foreach ($tags as $taxonomy) {
-                $result = $wpdb->get_results("
+                $result = $wpdb->get_results($wpdb->prepare("
                     SELECT count(*) as cnt, max(term_order) as max, min(term_order) as min
                     FROM $wpdb->terms AS terms
                     INNER JOIN $wpdb->term_taxonomy AS term_taxonomy ON ( terms.term_id = term_taxonomy.term_id )
-                    WHERE term_taxonomy.taxonomy = '" . $taxonomy . "'
-                ");
+                    WHERE term_taxonomy.taxonomy = %s
+                ", $taxonomy));
                 if ($result[0]->cnt == 0 || $result[0]->cnt == $result[0]->max)
                     continue;
 
-                $results = $wpdb->get_results("
+                $results = $wpdb->get_results($wpdb->prepare("
                     SELECT terms.term_id
                     FROM $wpdb->terms AS terms
                     INNER JOIN $wpdb->term_taxonomy AS term_taxonomy ON ( terms.term_id = term_taxonomy.term_id )
-                    WHERE term_taxonomy.taxonomy = '" . $taxonomy . "'
+                    WHERE term_taxonomy.taxonomy = %s
                     ORDER BY term_order ASC
-                ");
+                ", $taxonomy));
                 foreach ($results as $key => $result) {
                     $wpdb->update($wpdb->terms, array('term_order' => $key + 1), array('term_id' => $result->term_id));
                 }
@@ -275,6 +289,8 @@ class SCPO_Engine {
 
         if (!is_array($data))
             return false;
+
+        $this->refresh_objects();
 
         $id_arr = array();
         foreach ($data as $key => $values) {
@@ -309,6 +325,8 @@ class SCPO_Engine {
 
         if (!is_array($data))
             return false;
+
+        $this->refresh_tags();
 
         $id_arr = array();
         foreach ($data as $key => $values) {
@@ -354,28 +372,28 @@ class SCPO_Engine {
 
         if (!empty($objects)) {
             foreach ($objects as $object) {
-                $result = $wpdb->get_results("
+                $result = $wpdb->get_results($wpdb->prepare("
                     SELECT count(*) as cnt, max(menu_order) as max, min(menu_order) as min
                     FROM $wpdb->posts
-                    WHERE post_type = '" . $object . "' AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
-                ");
+                    WHERE post_type = %s AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
+                ", $object));
                 if ($result[0]->cnt == 0 || $result[0]->cnt == $result[0]->max)
                     continue;
 
                 if ($object == 'page') {
-                    $results = $wpdb->get_results("
+                    $results = $wpdb->get_results($wpdb->prepare("
                         SELECT ID
                         FROM $wpdb->posts
-                        WHERE post_type = '" . $object . "' AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
-                        ORDER BY post_title ASC
-                    ");
+                        WHERE post_type = %s AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
+                        ORDER BY menu_order ASC, post_title ASC
+                    ", $object));
                 } else {
-                    $results = $wpdb->get_results("
+                    $results = $wpdb->get_results($wpdb->prepare("
                         SELECT ID
                         FROM $wpdb->posts
-                        WHERE post_type = '" . $object . "' AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
-                        ORDER BY post_date DESC
-                    ");
+                        WHERE post_type = %s AND post_status IN ('publish', 'pending', 'draft', 'private', 'future')
+                        ORDER BY menu_order ASC, post_date DESC
+                    ", $object));
                 }
                 foreach ($results as $key => $result) {
                     $wpdb->update($wpdb->posts, array('menu_order' => $key + 1), array('ID' => $result->ID));
@@ -385,22 +403,22 @@ class SCPO_Engine {
 
         if (!empty($tags)) {
             foreach ($tags as $taxonomy) {
-                $result = $wpdb->get_results("
+                $result = $wpdb->get_results($wpdb->prepare("
                     SELECT count(*) as cnt, max(term_order) as max, min(term_order) as min
                     FROM $wpdb->terms AS terms
                     INNER JOIN $wpdb->term_taxonomy AS term_taxonomy ON ( terms.term_id = term_taxonomy.term_id )
-                    WHERE term_taxonomy.taxonomy = '" . $taxonomy . "'
-                ");
+                    WHERE term_taxonomy.taxonomy = %s
+                ", $taxonomy));
                 if ($result[0]->cnt == 0 || $result[0]->cnt == $result[0]->max)
                     continue;
 
-                $results = $wpdb->get_results("
+                $results = $wpdb->get_results($wpdb->prepare("
                     SELECT terms.term_id
                     FROM $wpdb->terms AS terms
                     INNER JOIN $wpdb->term_taxonomy AS term_taxonomy ON ( terms.term_id = term_taxonomy.term_id )
-                    WHERE term_taxonomy.taxonomy = '" . $taxonomy . "'
-                    ORDER BY name ASC
-                ");
+                    WHERE term_taxonomy.taxonomy = %s
+                    ORDER BY term_order ASC, name ASC
+                ", $taxonomy));
                 foreach ($results as $key => $result) {
                     $wpdb->update($wpdb->terms, array('term_order' => $key + 1), array('term_id' => $result->term_id));
                 }
