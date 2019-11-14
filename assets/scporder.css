@@ -2,9 +2,20 @@
 	cursor: move;
 }
 .ui-sortable tr.alternate {
-	background-color: #F9F9F9;	
+	background-color: #F9F9F9;
 }
 .ui-sortable tr.ui-sortable-helper {
 	background-color: #F9F9F9;
 	border-top: 1px solid #DFDFDF;
+}
+.ui-sortable .ui-sortable-placeholder {
+	visibility: visible !important;
+}
+.ui-sortable .ui-sortable-placeholder td {
+	padding: 0;
+}
+.ui-sortable .ui-sortable-placeholder div {
+	box-sizing: border-box;
+	border: 2px dashed #0073aa;
+	background: rgb(0, 115, 170, 0.075);
 }

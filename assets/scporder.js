@@ -1,8 +1,14 @@
 (function ($) {
+    function start(e, ui) {
+        ui.placeholder.html('<td colspan="' + ui.item.children().length + '"><div>&nbsp;</div></td>');
+        ui.placeholder.find('div').height(ui.item.height());
+    }
+
     $('table.posts #the-list, table.pages #the-list').sortable({
         'items': 'tr',
         'axis': 'y',
         'helper': fixHelper,
+        'start': start,
         'update': function (e, ui) {
             $.post(ajaxurl, {
                 action: 'update-menu-order',
@@ -14,6 +20,7 @@
         'items': 'tr',
         'axis': 'y',
         'helper': fixHelper,
+        'start': start,
         'update': function (e, ui) {
             $.post(ajaxurl, {
                 action: 'update-menu-order-tags',
