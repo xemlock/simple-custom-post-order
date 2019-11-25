@@ -52,7 +52,7 @@
         jQuery('#the-list').find('tr').each(function () {
             var j = 0;
             $(this).find('td').each(function () {
-                $(this).width(td_array[j]);
+                $(this).outerWidth(td_array[j]);
                 j += 1;
             });
         });
@@ -61,7 +61,7 @@
         // check if there are no items in the table
         if(jQuery('#the-list > tr.no-items').length == 0){
             jQuery('#the-list').parent().find('thead').find('th').each(function () {
-                $(this).width(td_array[y]);
+                $(this).outerWidth(td_array[y]);
                 y += 1;
             });
         }
